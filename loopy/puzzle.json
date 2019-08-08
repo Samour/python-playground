@@ -1,0 +1,58 @@
+{
+  "model": "GRID",
+  "size": [6, 6],
+  "line_counts": [
+    {
+      "value": 3,
+      "vertex": {"x": 2.5, "y": 0.5}
+    },
+    {
+      "value": 2,
+      "vertex": {"x": 3.5, "y": 0.5}
+    },
+    {
+      "value": 2,
+      "vertex": {"x": 2.5, "y": 1.5}
+    },
+    {
+      "value": 3,
+      "vertex": {"x": 0.5, "y": 2.5}
+    },
+    {
+      "value": 1,
+      "vertex": {"x": 1.5, "y": 2.5}
+    },
+    {
+      "value": 3,
+      "vertex": {"x": 2.5, "y": 2.5}
+    },
+    {
+      "value": 2,
+      "vertex": {"x": 2.5, "y": 3.5}
+    },
+    {
+      "value": 2,
+      "vertex": {"x": 4.5, "y": 3.5}
+    },
+    {
+      "value": 0,
+      "vertex": {"x": 0.5, "y": 4.5}
+    },
+    {
+      "value": 2,
+      "vertex": {"x": 1.5, "y": 4.5}
+    },
+    {
+      "value": 2,
+      "vertex": {"x": 2.5, "y": 4.5}
+    },
+    {
+      "value": 2,
+      "vertex": {"x": 3.5, "y": 4.5}
+    },
+    {
+      "value": 2,
+      "vertex": {"x": 4.5, "y": 4.5}
+    }
+  ]
+}
