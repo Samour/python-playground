@@ -33,12 +33,15 @@ class IEvent:
   pass
 
 
-class IEventListener:
-
-  def receive(self, event):
-    pass
+class ISubscriber:
 
   def register_bus(self, event_bus):
+    pass
+
+
+class IEventListener(ISubscriber):
+
+  def receive(self, event):
     pass
 
 

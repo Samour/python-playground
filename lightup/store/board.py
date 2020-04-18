@@ -20,6 +20,10 @@ class BoardResetEvent(events.IEvent):
     return '(x = {}, y = {})'.format(self.x, self.y)
 
 
+class GameResetEvent(events.IEvent):
+  pass
+
+
 class CellStateUpdatedEvent(events.IEvent):
 
   def __init__(self, x, y, state):
@@ -51,6 +55,60 @@ class GameMode:
 
   CONSTRUCT = 'CONSTRUCT'
   SOLVE = 'SOLVE'
+
+
+class LineOfSightIterator:
+
+  def __init__(self, store, x, y):
+    self._store = store
+    self._x = x
+    self._y = y
+    self._dir = 0
+    self._i = 0
+
+  def __next__(self):
+    self._increment_ptr()
+    return (self._get_cell(), *self._get_coords())
+
+  def _increment_ptr(self):
+    self._i += 1
+    if self._ptr_is_valid() and self._get_cell().state is not CellState.WALL:
+      return
+
+    self._i = 0
+    self._dir += 1
+    self._increment_ptr()
+
+  def _get_coords(self):
+    if self._dir == 0:
+      return self._x + self._i, self._y
+    elif self._dir == 1:
+      return self._x - self._i, self._y
+    elif self._dir == 2:
+      return self._x, self._y + self._i
+    elif self._dir == 3:
+      return self._x, self._y - self._i
+    else:
+      raise StopIteration()
+  
+  def _ptr_is_valid(self):
+    x, y = self._get_coords()
+    return x >= 0 and x < self._store.dims[0] and y >= 0 and y < self._store.dims[1]
+
+  def _get_cell(self):
+    x, y = self._get_coords()
+    return self._store.get_cell(*self._get_coords())
+
+
+class _LineOfSightIterable:
+
+  def __init__(self, store, x, y):
+    self._store = store
+    self._x = x
+    self._y = y
+
+  def __iter__(self):
+    return LineOfSightIterator(self._store, self._x, self._y)
 
 
 class BoardStore:
@@ -98,9 +156,14 @@ class BoardStore:
         cell_state = CellState(CellState.EMPTY, False, None)
         self._board[x][y] = cell_state
         self._event_bus.emit(CellStateUpdatedEvent(x, y, cell_state))
+    
+    self._event_bus.emit(GameResetEvent())
 
   def get_cell(self, x, y):
     return self._board[x][y]
+
+  def line_of_sight(self, x, y):
+    return _LineOfSightIterable(self, x, y)
 
   def set_cell_state(self, x, y, state):
     current_state = self.get_cell(x, y)
@@ -124,29 +187,13 @@ class BoardStore:
     self._event_bus.emit(CellStateUpdatedEvent(x, y, cell_state))
 
   def _update_lit_matrix(self, x, y, lit):
-    def update_matrix_el(i, j):
-      cell = self._board[i][j]
-      if cell.state is CellState.WALL:
-        return True
-      
+    for cell, i, j in self.line_of_sight(x, y):
       lit_by = self._lit_by_matrix[i][j]
       if lit:
         lit_by.add((x, y))
       else:
         lit_by.remove((x, y))
       self._update_lit(i, j, len(lit_by) > 0 or cell.state is CellState.LIGHT)
-
-      return False
-    
-    def update_elements(generator, coords):
-      for i in generator:
-        if update_matrix_el(*coords(i)):
-          return
-
-    update_elements(range(x + 1, self._dims[0]), lambda i: (i, y))
-    update_elements(range(x - 1, -1, -1), lambda i: (i, y))
-    update_elements(range(y + 1, self._dims[1]), lambda i: (x, i))
-    update_elements(range(y - 1, -1, -1), lambda i: (x, i))
 
   def set_cell_count(self, x, y, count):
     current_state = self.get_cell(x, y)
