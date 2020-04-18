@@ -1,14 +1,16 @@
 import tkinter as tk
 import events
 import store.board
+import store.solver
 import solution.validator as validator
 
 
 class BoardControls(tk.Frame, events.EventListenerSync):
 
-  def __init__(self, master, board_store):
+  def __init__(self, master, board_store, solver_store):
     super().__init__(master)
     self._store = board_store
+    self._solver_store = solver_store
     self._mode_btn = None
     self._reset_btn = None
     self._clear_btn = None
@@ -24,18 +26,19 @@ class BoardControls(tk.Frame, events.EventListenerSync):
     if self._clear_btn is not None:
       self._clear_btn.destroy()
 
-    self._mode_btn = tk.Button(self, text = self._get_mode_btn_text(), command = self._change_mode())
+    btn_state = tk.DISABLED if self._solver_store.solution_in_progress else tk.NORMAL
+    self._mode_btn = tk.Button(self, text = self._get_mode_btn_text(), state = btn_state, command = self._change_mode())
     self._mode_btn.pack(side = tk.LEFT)
-    self._reset_btn = tk.Button(self, text = 'Reset', command = self._reset_game)
+    self._reset_btn = tk.Button(self, text = 'Reset', state = btn_state, command = self._reset_game)
     self._reset_btn.pack(side = tk.LEFT)
-    self._clear_btn = tk.Button(self, text = 'Clear', command = self._clear_board)
+    self._clear_btn = tk.Button(self, text = 'Clear', state = btn_state, command = self._clear_board)
     self._clear_btn.pack(side = tk.LEFT)
 
   def _get_mode_btn_text(self):
     if self._store.game_mode is store.board.GameMode.SOLVE:
-      return 'Construct puzzle'
+      return 'Construct mode'
     else:
-      return 'Solve puzzle'
+      return 'Solve mode'
 
   def _change_mode(self):
     game_mode = self._store.game_mode
@@ -56,6 +59,10 @@ class BoardControls(tk.Frame, events.EventListenerSync):
   def receive(self, event):
     if isinstance(event, store.board.GameModeUpdatedEvent):
       self._render_controls()
+    elif isinstance(event, store.solver.SolverStartedEvent):
+      self._render_controls()
+    elif isinstance(event, store.solver.SolverFinishedEvent):
+      self._render_controls()
 
 
 class ValidationControl(tk.Frame, events.EventListenerSync):
@@ -64,23 +71,32 @@ class ValidationControl(tk.Frame, events.EventListenerSync):
   _WARNING_COLOUR = 'orange'
   _ERROR_COLOUR = 'red'
 
-  def __init__(self, master, solution_validator):
+  def __init__(self, master, solution_validator, board_store, solver_store):
     super().__init__(master)
     self._solution_validator = solution_validator
+    self._board_store = board_store
+    self._solver_store = solver_store
+    self._btn_frame = None
     self._validate_btn = None
+    self._solve_btn = None
     self._validation_msg = None
 
   def init(self):
     self._render_controls()
 
   def _render_controls(self):
-    if self._validate_btn is not None:
-      self._validate_btn.destroy()
+    if self._btn_frame is not None:
+      self._btn_frame.destroy()
     if self._validation_msg is not None:
       self._validation_msg.destroy()
 
-    self._validate_btn = tk.Button(self, text = 'Validate', command = self._validate)
-    self._validate_btn.pack()
+    btn_state = tk.DISABLED if self._solver_store.solution_in_progress else tk.NORMAL
+    self._btn_frame = tk.Frame(self)
+    self._btn_frame.pack()
+    self._validate_btn = tk.Button(self._btn_frame, text = 'Validate', state = btn_state, command = self._validate)
+    self._validate_btn.pack(side = tk.LEFT)
+    self._solve_btn = tk.Button(self._btn_frame, text = 'Solve', state = btn_state, command = self._solve)
+    self._solve_btn.pack(side = tk.LEFT)
   
   def _validate(self):
     self._clear_validation_msg()
@@ -100,21 +116,33 @@ class ValidationControl(tk.Frame, events.EventListenerSync):
       self._validation_msg = tk.Label(self, text = 'There are errors in the solution', fg = self._ERROR_COLOUR)
     self._validation_msg.pack()
 
+  def _solve(self):
+    self._solver_store.solve_in_thread(self._board_store)
+
   def receive(self, event):
     if isinstance(event, store.board.BoardResetEvent) or isinstance(event, store.board.GameResetEvent):
       self._clear_validation_msg()
+    elif isinstance(event, store.solver.SolverStartedEvent):
+      self._render_controls()
+    elif isinstance(event, store.solver.SolverFinishedEvent):
+      self._receive_solver_finished()
   
   def _clear_validation_msg(self):
     if self._validation_msg is not None:
       self._validation_msg.destroy()
+  
+  def _receive_solver_finished(self):
+    self._solver_store.thread_join()
+    self._render_controls()
 
 
 class Controls(tk.Frame, events.ISubscriber):
 
-  def __init__(self, master, board_store, solution_validator):
+  def __init__(self, master, board_store, solver_store, solution_validator):
     super().__init__(master)
     self._event_bus = None
     self._board_store = board_store
+    self._solver_store = solver_store
     self._solution_validator = solution_validator
     self._board_controls = None
     self._validation_control = None
@@ -128,9 +156,9 @@ class Controls(tk.Frame, events.ISubscriber):
     if self._validation_control is not None:
       self._validation_control.destroy()
 
-    self._board_controls = BoardControls(self, self._board_store)
+    self._board_controls = BoardControls(self, self._board_store, self._solver_store)
     self._board_controls.pack()
-    self._validation_control = ValidationControl(self, self._solution_validator)
+    self._validation_control = ValidationControl(self, self._solution_validator, self._board_store, self._solver_store)
     self._validation_control.pack()
     if self._event_bus is not None:
       self._board_controls.register_bus(self._event_bus)

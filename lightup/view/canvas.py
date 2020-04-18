@@ -22,7 +22,7 @@ class BoardCanvas(tk.Frame, events.EventListenerSync):
   _CROSS_COLOUR = 'red'
   _LIT_FILL = 'yellow'
 
-  def __init__(self, master, board_store):
+  def __init__(self, master, board_store, solver_store):
     super().__init__(master)
     self._canvas = None
     self._grid_dims = (0, 0)
@@ -30,6 +30,7 @@ class BoardCanvas(tk.Frame, events.EventListenerSync):
     self._focus_cell = None
     self._handles = []
     self._store = board_store
+    self._solver_store = solver_store
 
   def receive(self, event):
     if isinstance(event, store.board.BoardResetEvent):
@@ -78,6 +79,9 @@ class BoardCanvas(tk.Frame, events.EventListenerSync):
       )
 
   def _handle_click(self, event):
+    if self._solver_store.solution_in_progress:
+      return
+
     board_x = int((event.x - self._CANVAS_BLEFT) * self._grid_dims[0] / self._canvas_dims[0])
     board_y = int((event.y - self._CANVAS_BTOP) * self._grid_dims[1] / self._canvas_dims[1])
     self._focus_cell = board_x, board_y
@@ -108,7 +112,8 @@ class BoardCanvas(tk.Frame, events.EventListenerSync):
       return store.board.CellState.EMPTY
 
   def _handle_keypress(self, event):
-    if self._store.game_mode is not store.board.GameMode.CONSTRUCT or\
+    if self._solver_store.solution_in_progress or\
+      self._store.game_mode is not store.board.GameMode.CONSTRUCT or\
       self._store.get_cell(*self._focus_cell).state is not store.board.CellState.WALL:
       return
 
