@@ -18,6 +18,9 @@ class CellBackTrack:
     self._store.set_cell_state(x, y, state)
 
   def rewind_last_guess(self):
+    if len(self._guesses) == 0:
+      return None
+
     last_guess = self._guesses.pop()
     rewind = None
     while last_guess != rewind:
@@ -47,13 +50,13 @@ class BruteForceSolver(solution.solver.ISolverAsync):
       if len(solution_validator.validate()) == 0:
         return # Solution found
 
-      last_guess = back_track.rewind_last_guess()
+      last_guess = self._backtrack(store, cell_validator, back_track)
       if last_guess is None:
         return # No solution
-      back_track.set_cell_state(last_guess[0], last_guess[1], board.CellState.CROSS, False)
       next_guess = last_guess[0] + 1, last_guess[1]
 
   def _fill_stack(self, store, validator, back_track, x, y):
+    x, y = self._populate_determined(store, validator, back_track) or (x, y)
     next_cell = self._next_empty_cell(store, validator, x, y)
     while next_cell is not None:
       if self._break_soln:
@@ -63,11 +66,31 @@ class BruteForceSolver(solution.solver.ISolverAsync):
 
       self._do_sleep()
 
+      next_cell = self._populate_determined(store, validator, back_track) or next_cell
       next_cell = self._next_empty_cell(store, validator, next_cell[0] + 1, next_cell[1])
+  
+  def _backtrack(self, store, validator, back_track):
+    last_guess = back_track.rewind_last_guess()
+    if last_guess is None:
+      return
+    
+    cell = store.get_cell(*last_guess)
+    validation_errors = validator.placement_legal(
+      last_guess[0], last_guess[1],
+      board.CellState(board.CellState.CROSS, cell.lit, cell.count)
+    )
+    if self._count_illegal(validation_errors) > 0:
+      return self._backtrack(store, validator, back_track)
+    else:
+      back_track.set_cell_state(last_guess[0], last_guess[1], board.CellState.CROSS, False)
+      return last_guess
 
   def _do_sleep(self):
     if self._step_timeout > 0:
       time.sleep(self._step_timeout)
+
+  def _populate_determined(self, store, validator, back_track):
+    pass
 
   def _next_empty_cell(self, store, validator, x, y):
     for i in range(y, store.dims[1]):

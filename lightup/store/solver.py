@@ -2,6 +2,7 @@ import time
 import threading
 import events
 import solution.brute
+import solution.backtrack
 
 
 class SolverStartedEvent(events.IEvent):
@@ -16,7 +17,7 @@ class SolverStore:
 
   def __init__(self, event_bus):
     self._event_bus = event_bus
-    self._solver = solution.brute.BruteForceSolver(0.001)
+    self._solver = solution.backtrack.BackTrackSolver(0.5)
     self._solver_thread = None
     self._solution_in_progress = False
 
