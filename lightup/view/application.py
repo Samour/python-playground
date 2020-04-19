@@ -52,7 +52,7 @@ class Application(tk.Frame):
     self._validator = validator.SolutionValidatorBuilder.solution_validator(self._board_store)
     self._render_widgets()
     # self._board_store.reset_board(7, 7)
-    store.puzzles.PuzzleLoader.load_puzzle(self._board_store, store.puzzles.PuzzleLoader.EASY_10x10)
+    store.puzzles.PuzzleLoader.load_puzzle(self._board_store, store.puzzles.PuzzleLoader.HARD_25x25)
 
   def _render_widgets(self):
     self._controls = view.controls.Controls(self, self._board_store, self._solver_store, self._validator)

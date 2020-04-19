@@ -118,7 +118,7 @@ class BoardStore:
     self._dims = (0, 0)
     self._board = []
     self._lit_by_matrix = []
-    self._game_mode = GameMode.CONSTRUCT
+    self._game_mode = GameMode.SOLVE
 
   @property
   def game_mode(self):

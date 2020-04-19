@@ -19,6 +19,8 @@ class BackTrackSolver(solution.brute.BruteForceSolver):
           cell = store.get_cell(x, y)
           if cell.state is board.CellState.EMPTY and not cell.lit:
             rewind, adj = self._place_cross_on_illegal(cell, store, validator, back_track, x, y)
+            if not rewind and not adj:
+              rewind, adj = self._place_light_isolated_cell(store, cell, validator, back_track, x, y)
           elif cell.state is board.CellState.WALL and cell.count is not None:
             rewind, adj = self._place_lights_on_wall(store, cell, validator, back_track, x, y)
           elif cell.state is board.CellState.CROSS and not cell.lit:
@@ -51,6 +53,12 @@ class BackTrackSolver(solution.brute.BruteForceSolver):
 
     return self._place_if_legal(cell, store, validator, back_track, x, y, board.CellState.CROSS), True
 
+  def _place_light_isolated_cell(self, store, cell, validator, back_track, x, y):
+    if len(self._get_empty_line_of_sight(store, x, y)) == 0:
+      return self._place_if_legal(cell, store, validator, back_track, x, y, board.CellState.LIGHT), True
+    else:
+      return None, False
+
   def _place_lights_on_wall(self, store, cell, validator, back_track, x, y):
     adjacent_cells = solution.validator.IncidentLightUtil.get_adjacent(store, x, y)
     empty_cells = [cell for cell in adjacent_cells if cell[0].state is board.CellState.EMPTY and not cell[0].lit]
@@ -77,10 +85,13 @@ class BackTrackSolver(solution.brute.BruteForceSolver):
     
     return None, False
 
-  def _place_only_viable_light(self, store, validator, back_track, x, y):
-    empty_cells = [
+  def _get_empty_line_of_sight(self, store, x, y):
+    return [
       cell for cell in store.line_of_sight(x, y) if cell[0].state is board.CellState.EMPTY and not cell[0].lit
     ]
+
+  def _place_only_viable_light(self, store, validator, back_track, x, y):
+    empty_cells = self._get_empty_line_of_sight(store, x, y)
     if len(empty_cells) == 1:
       cell, i, j = empty_cells[0]
       return self._place_if_legal(cell, store, validator, back_track, i, j, board.CellState.LIGHT), True

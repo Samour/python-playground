@@ -6,19 +6,19 @@ import store.board
 
 class BoardCanvas(tk.Frame, events.EventListenerSync):
 
-  _CELL_WIDTH = 30
-  _CELL_HEIGHT = 30
+  _CELL_WIDTH = 20
+  _CELL_HEIGHT = 20
   _BORDER_WIDTH = 1
   _CANVAS_BLEFT = 5
   _CANVAS_BTOP = 5
   _WALL_CELL_FILL = 'black'
   _WALL_TEXT_COLOUR = 'white'
-  _WALL_TEXT_FONT = 'Times', 16
+  _WALL_TEXT_FONT = 'Times', 14
   _LIGHT_INNER_FILL = 'yellow'
-  _LIGHT_PADDING = 10
-  _LIGHT_RAY_R1 = 10
-  _LIGHT_RAY_R2 = 13
-  _CROSS_PADDING = 10
+  _LIGHT_PADDING = 5
+  _LIGHT_RAY_R1 = 5
+  _LIGHT_RAY_R2 = 8
+  _CROSS_PADDING = 5
   _CROSS_COLOUR = 'red'
   _LIT_FILL = 'yellow'
 
