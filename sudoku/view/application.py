@@ -2,6 +2,7 @@ import tkinter as tk
 import events.bus as events
 import events.tkinter as tkevents
 import sudoku.store.board as board
+import sudoku.store.solver as solver
 import sudoku.view.controls as controls
 import sudoku.view.canvas as canvas
 
@@ -22,6 +23,7 @@ class Application(tk.Frame):
     self._event_bus = None
     self._event_bridge = None
     self._store = None
+    self._solver_store = None
     self._controls = None
     self._canvas = None
 
@@ -30,12 +32,14 @@ class Application(tk.Frame):
     self._event_bridge = tkevents.ApplicationEventBridge(self)
     self._event_bridge.subscribe(self._event_bus)
     self._store = board.SudokuStore(self._event_bus)
+    self._solver_store = solver.SolverStore(self._event_bus)
     if LOG_EVENTS:
       LoggingEventListener().subscribe(self._event_bus)
 
-    self._controls = controls.Controls(self, self._store)
+    self._controls = controls.Controls(self, self._store, self._solver_store)
+    self._controls.subscribe(self._event_bridge)
     self._controls.pack()
-    self._canvas = canvas.GameCanvas(self, self._store)
+    self._canvas = canvas.GameCanvas(self, self._store, self._solver_store)
     self._canvas.subscribe(self._event_bridge)
     self._canvas.pack()
     self.pack(pady = 10)
@@ -46,6 +50,7 @@ class Application(tk.Frame):
 
   def destroy(self):
     self._event_bridge.stop()
+    self._solver_store.stop_thread()
     super().destroy()
 
 

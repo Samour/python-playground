@@ -19,13 +19,15 @@ class CellDeserialiserIterator:
     cell.fixed = fixed == '1'
     cell.possible = { int(i) for i in possible.split(PuzzleSerialisation.ARR_DELIM) if len(i) > 0 }
 
-    event = events.SudokuCellUpdatedEvent(self._x, self._y, cell)
+    x = self._x
+    y = self._y
+
     self._y += 1
     if self._y == 9:
       self._y = 0
       self._x += 1
 
-    return event
+    return x, y, cell
 
 
 class CellDeserialiserIterable:
@@ -184,8 +186,8 @@ class SudokuStore:
     fh.write(PuzzleSerialisation.serialise(self))
 
   def load(self, fh):
-    for cell in PuzzleSerialisation.deserialise(fh.read()):
-      self._update_cell(cell, False)
+    for x, y, cell in PuzzleSerialisation.deserialise(fh.read()):
+      self._update_cell(x, y, cell, False)
     self._clear_history()
 
   def _clear_history(self):

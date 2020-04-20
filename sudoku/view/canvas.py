@@ -1,14 +1,16 @@
 import tkinter as tk
 import events.bus as events
 import sudoku.events.sudoku as sudokuevents
+import sudoku.events.solver as solverevents
 import sudoku.store.board as board
 
 
 class GameControls(tk.Frame, events.EventListenerSync):
 
-  def __init__(self, master, store):
+  def __init__(self, master, store, solver_store):
     super().__init__(master)
     self._store = store
+    self._solver_store = solver_store
     self._row_numbers = None
     self._cell_btn = None
     self._note_btn = None
@@ -26,12 +28,7 @@ class GameControls(tk.Frame, events.EventListenerSync):
 
     self._row_board = tk.Frame(self)
     self._row_board.pack()
-    self._lock_btn = tk.Button(self._row_board, text = 'Lock values', command = self._lock_values)
-    self._lock_btn.pack(side = tk.LEFT)
-    self._clear_btn = tk.Button(self._row_board, text = 'Clear all values', command = self._clear_board)
-    self._clear_btn.pack(side = tk.LEFT)
-    self._reset_btn = tk.Button(self._row_board, text = 'Reset solution', command = self._reset_game)
-    self._reset_btn.pack(side = tk.LEFT)
+    self._render_row_board()
 
   def _render_row_numbers(self):
     if self._cell_btn is not None:
@@ -47,21 +44,58 @@ class GameControls(tk.Frame, events.EventListenerSync):
     self._cell_btn = tk.Button(
       self._row_numbers,
       text = 'Cell',
-      state = tk.DISABLED if mode is board.SudokuStore.MODE_VALUE else tk.NORMAL,
+      state = tk.DISABLED\
+        if self._solver_store.solution_in_progress or mode is board.SudokuStore.MODE_VALUE\
+        else tk.NORMAL,
       command = self._set_mode(board.SudokuStore.MODE_VALUE)
     )
     self._cell_btn.pack(side = tk.LEFT)
     self._note_btn = tk.Button(
       self._row_numbers,
       text = 'Note',
-      state = tk.NORMAL if mode is board.SudokuStore.MODE_VALUE else tk.DISABLED,
+      state = tk.NORMAL\
+        if not self._solver_store.solution_in_progress and mode is board.SudokuStore.MODE_VALUE\
+        else tk.DISABLED,
       command = self._set_mode(board.SudokuStore.MODE_NOTE)
     )
+
+    btn_state = tk.DISABLED if self._solver_store.solution_in_progress else tk.NORMAL
     self._note_btn.pack(side = tk.LEFT)
-    self._undo_btn = tk.Button(self._row_numbers, text = 'Undo', command = self._undo)
+    self._undo_btn = tk.Button(self._row_numbers, state = btn_state, text = 'Undo', command = self._undo)
     self._undo_btn.pack(side = tk.LEFT)
-    self._redo_btn = tk.Button(self._row_numbers, text = 'Redo', command = self._redo)
+    self._redo_btn = tk.Button(self._row_numbers, state = btn_state, text = 'Redo', command = self._redo)
     self._redo_btn.pack(side = tk.LEFT)
+
+  def _render_row_board(self):
+    if self._lock_btn is not None:
+      self._lock_btn.destroy()
+    if self._clear_btn is not None:
+      self._clear_btn.destroy()
+    if self._reset_btn is not None:
+      self._reset_btn.destroy()
+
+    btn_state = tk.DISABLED if self._solver_store.solution_in_progress else tk.NORMAL
+    self._lock_btn = tk.Button(
+      self._row_board,
+      state = btn_state,
+      text = 'Lock values',
+      command = self._lock_values
+    )
+    self._lock_btn.pack(side = tk.LEFT)
+    self._clear_btn = tk.Button(
+      self._row_board,
+      state = btn_state,
+      text = 'Clear all values',
+      command = self._clear_board
+    )
+    self._clear_btn.pack(side = tk.LEFT)
+    self._reset_btn = tk.Button(
+      self._row_board,
+      state = btn_state,
+      text = 'Reset solution',
+      command = self._reset_game
+    )
+    self._reset_btn.pack(side = tk.LEFT)
 
   def _lock_values(self):
     for x in range(9):
@@ -88,6 +122,14 @@ class GameControls(tk.Frame, events.EventListenerSync):
   def receive(self, event):
     if isinstance(event, sudokuevents.ModeChangedEvent):
       self._render_row_numbers()
+    elif isinstance(event, solverevents.SolutionStartedEvent):
+      self._render_controls()
+    elif isinstance(event, solverevents.SolutionFinishedEvent):
+      self._render_controls()
+
+  def _render_controls(self):
+    self._render_row_numbers()
+    self._render_row_board()
 
 
 class GameCanvas(tk.Frame, events.EventListenerSync):
@@ -99,9 +141,10 @@ class GameCanvas(tk.Frame, events.EventListenerSync):
   _CELL_FIXED_BACKGROUND = '#ffffdd'
   _CELL_HIGHLIGHT_BACKGROUND = '#ddddff'
 
-  def __init__(self, master, store):
+  def __init__(self, master, store, solver_store):
     super().__init__(master)
     self._store = store
+    self._solver_store = solver_store
     self._canvas = None
     self._game_controls = None
     self._cells = [
@@ -118,7 +161,7 @@ class GameCanvas(tk.Frame, events.EventListenerSync):
     self._canvas.pack()
     self._canvas.bind('<Button-1>', self._handle_click)
     self._canvas.bind_all('<Key>', self._handle_keypress)
-    self._game_controls = GameControls(self, self._store)
+    self._game_controls = GameControls(self, self._store, self._solver_store)
     self._game_controls.pack()
     
     self._game_controls.subscribe(event_bus)
@@ -144,6 +187,9 @@ class GameCanvas(tk.Frame, events.EventListenerSync):
       )
 
   def _handle_click(self, event):
+    if self._solver_store.solution_in_progress:
+      return
+
     x = int((event.x - self._BOARD_BUFFER) * 9 / self._BOARD_SIZE)
     y = int((event.y - self._BOARD_BUFFER) * 9 / self._BOARD_SIZE)
     if x >= 9 or x < 0 or y >= 9 or y < 0:
@@ -155,7 +201,7 @@ class GameCanvas(tk.Frame, events.EventListenerSync):
     self._store.set_cell_highlight(x, y, True)
 
   def _handle_keypress(self, event):
-    if self._focus_cell is None:
+    if self._solver_store.solution_in_progress or self._focus_cell is None:
       return
     
     x, y = self._focus_cell
