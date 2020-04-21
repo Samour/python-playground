@@ -140,6 +140,7 @@ class GameCanvas(tk.Frame, events.EventListenerSync):
   _CELL_FONT_NOTE = 'Times', 10
   _CELL_FIXED_BACKGROUND = '#ffffdd'
   _CELL_HIGHLIGHT_BACKGROUND = '#ddddff'
+  _CELL_HIGHLIGHT2_BACKGROUND = '#ff8888'
 
   def __init__(self, master, store, solver_store):
     super().__init__(master)
@@ -238,11 +239,13 @@ class GameCanvas(tk.Frame, events.EventListenerSync):
       self._canvas.delete(handle)
 
     handles = []
-    
+
     if event.cell.fixed:
       handles.append(self._draw_cell_highlight(event.x, event.y, self._CELL_FIXED_BACKGROUND))
     elif event.cell.highlight:
       handles.append(self._draw_cell_highlight(event.x, event.y, self._CELL_HIGHLIGHT_BACKGROUND))
+    elif event.cell.highlight2:
+      handles.append(self._draw_cell_highlight(event.x, event.y, self._CELL_HIGHLIGHT2_BACKGROUND))
 
     if event.cell.value is not None:
       x = self._cell_to_grid(event.x + 0.5)

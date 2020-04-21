@@ -27,6 +27,8 @@ class SolverStore:
       pass
     
     self._solution_in_progress = False
+    store.clear_all_highlights()
+    store.clear_all_highlights2()
     self._event_bus.emit(events.SolutionFinishedEvent())
 
   def solve_in_thread(self, store):

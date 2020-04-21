@@ -77,6 +77,7 @@ class SudokuCell:
     self.value = None
     self.fixed = False
     self.highlight = False
+    self.highlight2 = False
     self.possible = set()
 
   def copy(self):
@@ -84,19 +85,21 @@ class SudokuCell:
     cell.value = self.value
     cell.fixed = self.fixed
     cell.highlight = self.highlight
+    cell.highlight2 = self.highlight2
     cell.possible = set(self.possible)
     
     return cell
 
   def __eq__(self, o):
     return self.value == o.value and self.fixed == o.fixed and self.highlight == o.highlight\
-      and self.possible == o.possible
+      and self.highlight2 == o.highlight2 and self.possible == o.possible
 
   def __str__(self):
-    return '(value = {}, fixed = {}, highlight = {}, possible = {})'.format(
+    return '(value = {}, fixed = {}, highlight = {}, highlight2 = {}, possible = {})'.format(
       self.value,
       self.fixed,
       self.highlight,
+      self.highlight2,
       self.possible
     )
 
@@ -139,6 +142,21 @@ class SudokuStore:
     cell = self._board[x][y].copy()
     cell.highlight = highlight
     self._update_cell(x, y, cell, False)
+
+  def clear_all_highlights(self):
+    for x in range(9):
+      for y in range(9):
+        self.set_cell_highlight(x, y, False)
+
+  def set_cell_highlight2(self, x, y, highlight2):
+    cell = self._board[x][y].copy()
+    cell.highlight2 = highlight2
+    self._update_cell(x, y, cell, False)
+
+  def clear_all_highlights2(self):
+    for x in range(9):
+      for y in range(9):
+        self.set_cell_highlight2(x, y, False)
 
   def add_cell_possible(self, x, y, value):
     cell = self._board[x][y].copy()

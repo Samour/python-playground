@@ -49,6 +49,8 @@ class Controls(tk.Frame, events.EventListenerSync):
         self._store.save(fh_open)
 
   def _solve(self):
+    self._store.clear_all_highlights()
+    self._store.clear_all_highlights2()
     self._solver_store.solve_in_thread(self._store)
 
   def _stop_solution(self):
