@@ -1,107 +1,7 @@
+import sudoku.store.model as model
+import sudoku.store.serialiser as serialiser
 import sudoku.events.sudoku as events
 
-
-class CellDeserialiserIterator:
-
-  def __init__(self, elements):
-    self._source = iter(elements)
-    self._x = 0
-    self._y = 0
-
-  def __next__(self):
-    el = next(self._source)
-    value, fixed, possible = el.split(PuzzleSerialisation.FIELD_DELIM)
-    cell = SudokuCell()
-    try:
-      cell.value = int(value)
-    except:
-      pass
-    cell.fixed = fixed == '1'
-    cell.possible = { int(i) for i in possible.split(PuzzleSerialisation.ARR_DELIM) if len(i) > 0 }
-
-    x = self._x
-    y = self._y
-
-    self._y += 1
-    if self._y == 9:
-      self._y = 0
-      self._x += 1
-
-    return x, y, cell
-
-
-class CellDeserialiserIterable:
-
-  def __init__(self, source):
-    self._source = source
-
-  def __iter__(self):
-    return CellDeserialiserIterator(self._source.split(PuzzleSerialisation.CELL_DELIM))
-
-
-class PuzzleSerialisation:
-
-  CELL_DELIM = ']'
-  FIELD_DELIM = ';'
-  ARR_DELIM = ','
-
-  @staticmethod
-  def serialise(store):
-    elements = []
-    for x in range(9):
-      for y in range(9):
-        elements.append(
-          PuzzleSerialisation._serialise_cell(
-            store.get_cell(x, y)
-          )
-        )
-
-    return PuzzleSerialisation.CELL_DELIM.join(elements)
-
-  @staticmethod
-  def _serialise_cell(cell):
-    return PuzzleSerialisation.FIELD_DELIM.join([
-      str(cell.value) if cell.value is not None else '',
-      '1' if cell.fixed else '0',
-      PuzzleSerialisation.ARR_DELIM.join([ str(i) for i in cell.possible ])
-    ])
-
-  @staticmethod
-  def deserialise(string):
-    return CellDeserialiserIterable(string)
-
-
-class SudokuCell:
-
-  def __init__(self):
-    self.value = None
-    self.fixed = False
-    self.highlight = False
-    self.highlight2 = False
-    self.possible = set()
-
-  def copy(self):
-    cell = SudokuCell()
-    cell.value = self.value
-    cell.fixed = self.fixed
-    cell.highlight = self.highlight
-    cell.highlight2 = self.highlight2
-    cell.possible = set(self.possible)
-    
-    return cell
-
-  def __eq__(self, o):
-    return self.value == o.value and self.fixed == o.fixed and self.highlight == o.highlight\
-      and self.highlight2 == o.highlight2 and self.possible == o.possible
-
-  def __str__(self):
-    return '(value = {}, fixed = {}, highlight = {}, highlight2 = {}, possible = {})'.format(
-      self.value,
-      self.fixed,
-      self.highlight,
-      self.highlight2,
-      self.possible
-    )
 
 class SudokuStore:
 
@@ -112,7 +12,7 @@ class SudokuStore:
     self._event_bus = event_bus
     self._mode = SudokuStore.MODE_VALUE
     self._board = [
-      [ SudokuCell() for i in range(9) ] for j in range(9)
+      [ model.SudokuCell() for i in range(9) ] for j in range(9)
     ]
     self._update_history = []
     self._undo_head = None
@@ -196,15 +96,15 @@ class SudokuStore:
 
   def _clear_cell(self, x, y):
     cell = self._board[x][y]
-    update = SudokuCell()
+    update = model.SudokuCell()
     update.highlight = cell.highlight
     self._update_cell(x, y, update, False)
   
   def save(self, fh):
-    fh.write(PuzzleSerialisation.serialise(self))
+    fh.write(serialiser.PuzzleSerialisation.serialise(self))
 
   def load(self, fh):
-    for x, y, cell in PuzzleSerialisation.deserialise(fh.read()):
+    for x, y, cell in serialiser.PuzzleSerialisation.deserialise(fh.read()):
       self._update_cell(x, y, cell, False)
     self._clear_history()
 

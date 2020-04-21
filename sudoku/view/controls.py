@@ -37,13 +37,13 @@ class Controls(tk.Frame, events.EventListenerSync):
     self._solve_btn.pack(side = tk.LEFT)
 
   def _load(self):
-    fh = tkfiledialog.askopenfile()
+    fh = tkfiledialog.askopenfile(mode='rb')
     if fh is not None:
       with fh as fh_open:
         self._store.load(fh_open)
 
   def _save(self):
-    fh = tkfiledialog.asksaveasfile()
+    fh = tkfiledialog.asksaveasfile(mode='wb')
     if fh is not None:
       with fh as fh_open:
         self._store.save(fh_open)
