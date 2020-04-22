@@ -1,6 +1,9 @@
 import struct
 
-
+MAX_INT32 = 0x7fffffff
+MIN_INT32 = -0x80000000
+MAX_INT64 = 0x7fffffffffffffff
+MIN_INT64 = -0x8000000000000000
 MAX_FIELDS = 255
 SHORT_SIZE = 0x02
 INT32_SIZE = 0x04
@@ -30,7 +33,7 @@ class FieldType:
   def default(self):
     pass
 
-  def valid(self, data):
+  def assert_valid(self, data):
     pass
 
   def print_value(self, data, pad_in=0, pad_size=2):
@@ -48,12 +51,12 @@ class String(FieldType):
   def default(self):
     return ''
 
-  def valid(self, data):
-    return isinstance(data, str)
+  def assert_valid(self, data):
+    if not isinstance(data, str):
+      raise TypeError('Vaue is not a string')
 
   def print_value(self, data, pad_in=0, pad_size=2):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     esc_str = []
     for c in data:
       if c == '"':
@@ -63,8 +66,7 @@ class String(FieldType):
     return '"{}"'.format(''.join(esc_str))
 
   def serialise_value(self, data):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid()
     return list(data.encode(STR_ENCODING)) + [CODE_NULL]
 
   def deserialise_value(self, b_iter):
@@ -81,17 +83,16 @@ class Boolean(FieldType):
   def default(self):
     return False
 
-  def valid(self, data):
-    return isinstance(data, bool)
+  def assert_valid(self, data):
+    if not isinstance(data, bool):
+      raise TypeError('Value is not a boolean')
   
   def print_value(self, data, pad_in=0, pad_size=2):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     return str(data)
 
   def serialise_value(self, data):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     return [0x01] if data else [0x00]
 
   def deserialise_value(self, b_iter):
@@ -103,17 +104,18 @@ class Int32(FieldType):
   def default(self):
     return 0
 
-  def valid(self, data):
-    return isinstance(data, int) and data <= MAX_INT32 and data >= MIN_INT32
+  def assert_valid(self, data):
+    if not isinstance(data, int):
+      raise TypeError('Value is not an int')
+    if data > MAX_INT32 or data < MIN_INT32:
+      raise TypeError('Value out of range')
 
   def print_value(self, data, pad_in=0, pad_size=2):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     return 'Int32( {} )'.format(data)
 
   def serialise_value(self, data):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     return list(struct.pack(PACK_INT32, data))
 
   def deserialise_value(self, b_iter):
@@ -125,8 +127,11 @@ class Int64(FieldType):
   def default(self):
     return 0
 
-  def valid(self, data):
-    return isinstance(data, int) and data <= MAX_INT64 and data >= MIN_INT64
+  def assert_valid(self, data):
+    if not isinstance(data, int):
+      raise TypeError('Value is not an int')
+    if data > MAX_INT64 or data < MIN_INT64:
+      raise TypeError('Value out of range')
 
   def print_value(self, data, pad_in=0, pad_size=2):
     if not self.valid(data):
@@ -147,17 +152,16 @@ class Float(FieldType):
   def default(self):
     return 0.0
 
-  def valid(self, data):
-    return isinstance(data, float)
+  def assert_valid(self, data):
+    if not isinstance(data, float):
+      raise TypeError('Value is not a float')
 
   def print_value(self, data, pad_in=0, pad_size=2):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     return 'Float( {} )'.format(data)
   
   def serialise_value(self, data):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     return list(struct.pack(PACK_FLOAT, data))
 
   def deserialise_value(self, b_iter):
@@ -169,17 +173,16 @@ class Double(FieldType):
   def default(self):
     return 0.0
 
-  def valid(self, data):
-    return isinstance(data, float)
+  def assert_valid(self, data):
+    if not isinstance(data, float):
+      raise TypeError('Value is not a double')
 
   def print_value(self, data, pad_in=0, pad_size=2):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     return 'Double( {} )'.format(data)
   
   def serialise_value(self, data):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     return list(struct.pack(PACK_DOBULE, data))
 
   def deserialise_value(self, b_iter):
@@ -189,22 +192,22 @@ class Double(FieldType):
 class List(FieldType):
 
   def __init__(self, element_type):
-    self.element_type = element_type
+    if isinstance(element_type, type) and issubclass(element_type, FieldType):
+      self.element_type = element_type()
+    else:
+      self.element_type = element_type
 
   def default(self):
     return []
 
-  def valid(self, data):
+  def assert_valid(self, data):
     if not isinstance(data, list):
-      return False
+      raise TypeError('Value is not a list')
     for e in data:
-      if not self.element_type.valid(e):
-        return False
-    return True
+      self.element_type.assert_valid(e)
 
   def print_value(self, data, pad_in=0, pad_size=2):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     elements = []
     for e in data:
       elements.append(self.element_type.print_value(e, pad_in=pad_in+pad_size, pad_size=pad_size))
@@ -217,8 +220,7 @@ class List(FieldType):
       return '[\n{}{}\n{}]'.format(pad_str, ',\n{}'.format(pad_str).join(elements), ' ' * pad_in)
 
   def serialise_value(self, data):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     arr = list(struct.pack(PACK_SHORT, len(data)))
     for i in data:
       arr.extend(self.element_type.serialise_value(i))
@@ -251,12 +253,8 @@ class StructObject:
   def __setattr__(self, name, value):
     if hasattr(self, '_struct'):
       field = [ f for f in self._struct.fields if f.name == name ]
-      if len(field) > 0 and not field[0].type.valid(value):
-        raise TypeError('{} {} cannot be represented with {}'.format(
-          type(value).__name__,
-          value,
-          type(field[0].type).__name__
-        ))
+      if len(field) > 0:
+        field[0].type.assert_valid(value)
 
     super().__setattr__(name, value)
 
@@ -272,21 +270,21 @@ class Struct(FieldType):
   def default(self):
     return None
 
-  def valid(self, data):
+  def assert_valid(self, data):
     if len(self.fields) > MAX_FIELDS:
-      return False
+      raise TypeError('Too many fields on object')
     if data is None:
-      return True
+      return
     if not isinstance(data, StructObject) or data._struct != self:
-      return False
+      raise TypeError('Value is wrong type')
     for field in self.fields:
-      if not hasattr(data, field.name) or not field.type.valid(getattr(data, field.name)):
-        return False
+      if not hasattr(data, field.name):
+        raise TypeError('Missing field: {}').format(field.name)
+      field.type.assert_valid(getattr(data, field.name))
     return True
 
   def print_value(self, data, pad_in=0, pad_size=2):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     if data is None:
       return 'None'
     elements = []
@@ -302,13 +300,12 @@ class Struct(FieldType):
       return '{}\n{}{}\n{}{}'.format('{', pad_str, ',\n{}'.format(pad_str).join(elements), ' ' * pad_in, '}')
 
   def serialise_value(self, data):
-    if not self.valid(data):
-      raise TypeError()
+    self.assert_valid(data)
     if data is None:
       return b''
     b = []
     # Append tags
-    fields = [ f for f in self.fields if getattr(data, f.name) is not f.type.default() ]
+    fields = [ f for f in self.fields if getattr(data, f.name) != f.type.default() ]
     fields.sort(key=lambda f: f.tag)
     b.append(len(fields))
     make_tag = []

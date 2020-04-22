@@ -1,4 +1,24 @@
+import zlib
+import schemabuf.schema.builder as schema
+import schemabuf.serialiser as schemaserialiser
 import sudoku.store.model as model
+
+
+SerialisableCell = schema.StructBuilder()\
+  .field('value', 0x1, schema.model.Int32)\
+  .field('fixed', 0x2, schema.model.Boolean)\
+  .field('possible', 0x3, schema.model.List(schema.model.Int32))\
+  .build()
+
+
+SerialisableBoard = schema.StructBuilder()\
+  .field('cells', 0x1, schema.model.List(SerialisableCell))\
+  .build()
+
+
+CompressingSerialiser = schemaserialiser.Serialiser([
+  schemaserialiser.CompressionSerialisationFilter(zlib.compress, zlib.decompress)
+])
 
 
 class CellDeserialiserIterator:
@@ -161,15 +181,65 @@ class PuzzleSerialisationV2:
     return V2CellDataIterable(data[len(PuzzleSerialisationV2.FILE_HEADER):-len(PuzzleSerialisationV2.FILE_FOOTER)])
 
 
+class PuzzleSerialisationV3:
+
+  FILE_HEADER = b'\x01<!SAMOURSUDOKU\x1f\x03>\x1d'
+  FILE_FOOTER = b'\x04'
+
+  def serialise(store):
+    board = SerialisableBoard.create()
+    for x in range(9):
+      for y in range(9):
+        cell = store.get_cell(x, y)
+        s_cell = SerialisableCell.create()
+        if cell.value is not None:
+          s_cell.value = cell.value
+        s_cell.fixed = cell.fixed
+        s_cell.possible = list(cell.possible)
+        board.cells.append(s_cell)
+
+    return b''.join([
+      PuzzleSerialisationV3.FILE_HEADER,
+      CompressingSerialiser.serialise(SerialisableBoard, board),
+      PuzzleSerialisationV3.FILE_FOOTER
+    ])
+
+  def format_matches(data):
+    file_header_len = len(PuzzleSerialisationV3.FILE_HEADER)
+    return len(data) > file_header_len and data[:file_header_len] == PuzzleSerialisationV3.FILE_HEADER
+
+  def deserialise(data):
+    board = CompressingSerialiser.deserialise(
+      SerialisableBoard,
+      data[len(PuzzleSerialisationV3.FILE_HEADER):-len(PuzzleSerialisationV3.FILE_FOOTER)]
+    )
+    x = 0
+    y = 0
+    for s_cell in board.cells:
+      cell = model.SudokuCell()
+      if s_cell.value > 0:
+        cell.value = s_cell.value
+      cell.fixed = s_cell.fixed
+      cell.possible = set(s_cell.possible)
+      c_x, c_y = x, y
+      y += 1
+      if y == 9:
+        x += 1
+        y = 0
+      yield c_x, c_y, cell
+
+
 class PuzzleSerialisation:
 
   @staticmethod
   def serialise(store):
-    return PuzzleSerialisationV2.serialise(store)
+    return PuzzleSerialisationV3.serialise(store)
 
   @staticmethod
   def deserialise(data):
-    if PuzzleSerialisationV2.format_matches(data):
+    if PuzzleSerialisationV3.format_matches(data):
+      return PuzzleSerialisationV3.deserialise(data)
+    elif PuzzleSerialisationV2.format_matches(data):
       return PuzzleSerialisationV2.deserialise(data)
     else:
       return PuzzleSerialisationV1.deserialise(data)
